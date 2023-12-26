@@ -5,52 +5,49 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     private Dictionary<string, float> pieceValues;
+    private const int MaxDepth = 3;
+
+    private void InitializePieceValues()
+    {
+        pieceValues = new Dictionary<string, float> {
+            {"Queen", 9},
+            {"Rook", 5},
+            {"Bishop", 3},
+            {"Knight", 3},
+            {"Pawn", 1}
+        };
+    }
 
     public MyBot()
     {
         InitializePieceValues();
     }
 
-    public Move Think(Board board, Timer timer)
+    // A variation of the MiniMax algorithm
+    // Instead of using 2 separate subroutines for the minimizer and maximizer, we use a single subroutine
+    // our static evaluation function must return a score relative to the side being evaluated
+    private float NegaMax(Board board, int depth)
     {
-        string color = board.IsWhiteToMove ? "White" : "Black";
-        Move[] moves = board.GetLegalMoves();
+        if (depth == 0)
+        {
+            return Evaluate(board);
+        }
 
-        float bestScore = color == "White" ? float.MinValue : float.MaxValue;
-        Move bestMove = moves[0];
-
-        foreach (Move move in moves)
+        float maxScore = float.MinValue;
+        foreach (Move move in board.GetLegalMoves())
         {
             board.MakeMove(move);
-            float score = Evaluate(board);
+            float score = -NegaMax(board, depth - 1);
+            // We have to switch the sign of the score because we are evaluating the position from the perspective of the opponent
             board.UndoMove(move);
 
-            bestMove = DetermineBestMove(color, move, score, ref bestScore, bestMove);
+            if (score > maxScore)
+            {
+                maxScore = score;
+            }
         }
 
-        return bestMove;
-    }
-
-    private Move DetermineBestMove(string color, Move move, float score, ref float bestScore, Move currentBestMove)
-    {
-        if ((color == "White" && score > bestScore) || (color == "Black" && score < bestScore))
-        {
-            bestScore = score;
-            return move;
-        }
-
-        return currentBestMove;
-    }
-
-    private void InitializePieceValues()
-    {
-        pieceValues = new Dictionary<string, float> {
-            { "Queen", 9 },
-            { "Rook", 5 },
-            { "Bishop", 3 },
-            { "Knight", 3 },
-            { "Pawn", 1 }
-        };
+        return maxScore;
     }
 
     public float Evaluate(Board board)
@@ -60,12 +57,31 @@ public class MyBot : IChessBot
         foreach (KeyValuePair<string, float> entry in pieceValues)
         {
             PieceType pieceType = (PieceType)Enum.Parse(typeof(PieceType), entry.Key);
-            PieceList whitePieces = board.GetPieceList(pieceType, true);
-            PieceList blackPieces = board.GetPieceList(pieceType, false);
-
-            score += (whitePieces.Count - blackPieces.Count) * entry.Value;
+            score += (board.GetPieceList(pieceType, true).Count - board.GetPieceList(pieceType, false).Count) * entry.Value;
         }
 
-        return score;
+        return board.IsWhiteToMove ? score : -score;
+    }
+
+    public Move Think(Board board, Timer timer)
+    {
+        Move[] moves = board.GetLegalMoves();
+        float bestScore = float.MinValue;
+        Move bestMove = moves[0];
+
+        foreach (Move move in moves)
+        {
+            board.MakeMove(move);
+            float score = -NegaMax(board, MaxDepth - 1);
+            board.UndoMove(move);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
     }
 }
