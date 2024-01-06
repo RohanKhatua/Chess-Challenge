@@ -30,6 +30,7 @@ public class MyBot : IChessBot
     {
         if (depth == 0)
         {
+            // At the end of the search depth we return the static evaluation of the position that we have reached
             return Evaluate(board);
         }
 
@@ -50,6 +51,7 @@ public class MyBot : IChessBot
         return maxScore;
     }
 
+    // TODO: Better Eval function
     public float Evaluate(Board board)
     {
         float score = 0;
